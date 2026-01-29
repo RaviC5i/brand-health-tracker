@@ -1,0 +1,270 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Comparison Dashboard - C5i Intelligence</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        :root {
+            --bg-dark: #0a192f;
+            --card-bg: #112240;
+            --primary-cyan: #00cecb;
+            --text-white: #e6f1ff;
+            --glow-green: #00ff88;
+            --glow-red: #ff4d4d;
+            --cr-yellow: #FFD700;
+        }
+
+        body { font-family: 'Segoe UI', sans-serif; background: var(--bg-dark); color: var(--text-white); margin: 0; padding: 20px; display: flex; flex-direction: column; align-items: center; }
+        
+        /* Banner & Dropdown */
+        .banner { 
+            width: 100%; height: 60px; background: #fff; display: grid;
+            grid-template-columns: 200px 1fr 200px; align-items: center; 
+            padding: 0 40px; box-sizing: border-box; position: fixed; top: 0; z-index: 1000; 
+        }
+        .banner-center { text-align: center; font-weight: bold; color: #333; font-size: 16px; }
+        .profile-container { position: relative; justify-self: end; cursor: pointer; }
+        .profile-pic { width: 35px; height: 35px; border-radius: 50%; border: 2px solid #ddd; object-fit: cover; }
+        
+        .dropdown {
+            position: absolute; top: 45px; right: 0; background: white;
+            border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+            display: none; flex-direction: column; width: 120px;
+            overflow: hidden; border: 1px solid #eee; z-index: 2000;
+        }
+        .dropdown a { padding: 10px 15px; text-decoration: none; color: #333; font-size: 14px; }
+        .dropdown a:hover { background: #f5f5f5; }
+        .show { display: flex !important; }
+
+        .dashboard-container { margin-top: 70px; width: 95%; max-width: 1200px; display: flex; flex-direction: column; gap: 15px; }
+        .card { background: var(--card-bg); border-radius: 12px; padding: 20px; border: 1px solid rgba(255,255,255,0.1); }
+        .filter-row { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 15px; }
+        .filter-item { display: flex; flex-direction: column; align-items: center; }
+        .selector { width: 80%; padding: 5px; font-size: 11px; border-radius: 4px; background: #1d3557; color: white; border: 1px solid var(--primary-cyan); outline: none; margin-top: 5px; text-align-last: center; }
+        
+        .vs-header { font-size: 20px; font-weight: bold; text-align: center; margin: 10px 0; color: var(--primary-cyan); }
+        .section-title { font-size: 14px; text-transform: uppercase; letter-spacing: 2px; text-align: center; margin: 25px 0 15px 0; color: #fff; border-top: 1px solid rgba(255,255,255,0.1); padding-top: 15px; }
+        
+        /* Funnel & Brackets */
+        .comparison-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 80px; }
+        .funnel-box { display: flex; flex-direction: column; align-items: center; width: 100%; position: relative; }
+        .layer { height: 35px; display: flex; align-items: center; justify-content: center; margin-bottom: 4px; font-size: 9px; font-weight: 800; color: #1e293b; width: 100%; text-align: center; position: relative; z-index: 2; }
+        
+        .awareness { clip-path: polygon(0 0, 100% 0, 92% 100%, 8% 100%); }
+        .familiarity { clip-path: polygon(8% 0, 92% 0, 84% 100%, 16% 100%); }
+        .consideration { clip-path: polygon(16% 0, 84% 0, 76% 100%, 24% 100%); }
+        .purchase { clip-path: polygon(24% 0, 76% 0, 70% 100%, 30% 100%); }
+
+        .bracket-label { position: absolute; font-size: 9px; font-weight: bold; display: flex; align-items: center; gap: 4px; color: var(--cr-yellow); right: -65px; z-index: 5; white-space: nowrap; }
+        .pos-1 { top: 32px; }
+        .pos-2 { top: 71px; }
+        .pos-3 { top: 110px; }
+
+        .cr-footer { width: 100%; text-align: center; color: var(--cr-yellow); font-size: 12px; font-weight: bold; margin-top: 20px; }
+
+        /* Perception Bars */
+        .perc-item { margin-bottom: 12px; width: 100%; }
+        .perc-label { font-size: 11px; margin-bottom: 4px; display: flex; justify-content: space-between; align-items: center; color: var(--text-white); }
+        .perc-bar-bg { background: #233554; height: 12px; border-radius: 6px; overflow: hidden; }
+        .perc-fill { height: 100%; transition: width 0.6s ease; }
+
+        /* Chart Legends */
+        .chart-legend-container { display: flex; align-items: center; justify-content: center; width: 100%; gap: 10px; margin-top: 10px; }
+        .chart-container { width: 90px; height: 90px; }
+        .legend-box { display: flex; flex-direction: column; gap: 3px; font-size: 10px; }
+        .legend-row { display: flex; align-items: center; gap: 6px; }
+        .dot { height: 8px; width: 8px; border-radius: 50%; }
+    </style>
+</head>
+<body>
+
+    <header class="banner">
+        <img src="https://c5image.s3.amazonaws.com/C5Org_C5Utility/BLRSP/Course5/C5i_Logo_Small.png" height="30">
+        <div class="banner-center">Comparison View | <span id="liveDate"></span></div>
+        <div class="profile-container" onclick="toggleMenu()">
+            <img src="https://img.icons8.com/color/96/elephant.png" class="profile-pic" alt="Profile">
+            <div class="dropdown" id="profileDropdown">
+                <a href="#">Help</a>
+                <a href="#">Sign Out</a>
+            </div>
+        </div>
+    </header>
+
+    <div class="dashboard-container">
+        <div class="card filter-row">
+            <div class="filter-item">
+                <label style="font-size: 12px; font-weight: bold;">Gender</label>
+                <select class="selector" id="genSel" onchange="updateAll()"><option value="all">All</option><option value="male">Male</option><option value="female">Female</option></select>
+                <div class="chart-legend-container">
+                    <div class="chart-container"><canvas id="genChart"></canvas></div>
+                    <div class="legend-box" id="genLegend"></div>
+                </div>
+            </div>
+            <div class="filter-item">
+                <label style="font-size: 12px; font-weight: bold;">Age Range</label>
+                <select class="selector" id="ageSel" onchange="updateAll()"><option value="all">All</option><option value="18">18-24</option><option value="25">25-40</option><option value="41">41-55</option><option value="55">55+</option></select>
+                <div class="chart-legend-container">
+                    <div class="chart-container"><canvas id="ageChart"></canvas></div>
+                    <div class="legend-box" id="ageLegend"></div>
+                </div>
+            </div>
+            <div class="filter-item">
+                <label style="font-size: 12px; font-weight: bold;">Country</label>
+                <select class="selector" id="regSel" onchange="updateAll()"><option value="all">All</option><option value="india">India</option><option value="usa">USA</option></select>
+                <div class="chart-legend-container">
+                    <div class="chart-container"><canvas id="regChart"></canvas></div>
+                    <div class="legend-box" id="regLegend"></div>
+                </div>
+            </div>
+        </div>
+
+        <div class="card">
+            <div class="vs-header">MAIN BRAND vs <select class="selector" id="compBrand" onchange="updateAll()" style="width:150px;"><option value="">Select Brand</option><option value="apple">APPLE</option><option value="samsung">SAMSUNG</option></select></div>
+            
+            <div class="section-title">Metrics</div>
+            <div class="comparison-grid">
+                <div class="funnel-box">
+                    <div style="color:var(--primary-cyan); font-size:10px; margin-bottom:10px; font-weight:bold;">MAIN BRAND</div>
+                    <div class="bracket-label pos-1" id="lcr1"></div>
+                    <div class="bracket-label pos-2" id="lcr2"></div>
+                    <div class="bracket-label pos-3" id="lcr3"></div>
+                    <div class="layer awareness" id="lm1" style="background:#b2c28e;"></div>
+                    <div class="layer familiarity" id="lm2" style="background:#e8c4a0;"></div>
+                    <div class="layer consideration" id="lm3" style="background:#ffffff;"></div>
+                    <div class="layer purchase" id="lm4" style="background:#9b8abf;"></div>
+                </div>
+
+                <div id="compM" class="funnel-box" style="visibility: hidden;">
+                    <div id="cT1" style="color:#fff; font-size:10px; margin-bottom:10px; font-weight:bold;">COMPETITOR</div>
+                    <div class="bracket-label pos-1" id="ccr1"></div>
+                    <div class="bracket-label pos-2" id="ccr2"></div>
+                    <div class="bracket-label pos-3" id="ccr3"></div>
+                    <div class="layer awareness" id="cm1"></div>
+                    <div class="layer familiarity" id="cm2"></div>
+                    <div class="layer consideration" id="cm3"></div>
+                    <div class="layer purchase" id="cm4"></div>
+                </div>
+            </div>
+            
+            <div class="cr-footer">CR = Conversion Ratio</div>
+
+            <div class="section-title">Perception</div>
+            <div class="comparison-grid">
+                <div>
+                    <div class="perc-item"><div class="perc-label" id="lp1"></div><div class="perc-bar-bg"><div class="perc-fill" id="lpb1" style="background:var(--primary-cyan)"></div></div></div>
+                    <div class="perc-item"><div class="perc-label" id="lp2"></div><div class="perc-bar-bg"><div class="perc-fill" id="lpb2" style="background:var(--primary-cyan)"></div></div></div>
+                    <div class="perc-item"><div class="perc-label" id="lp3"></div><div class="perc-bar-bg"><div class="perc-fill" id="lpb3" style="background:var(--primary-cyan)"></div></div></div>
+                    <div class="perc-item"><div class="perc-label" id="lp4"></div><div class="perc-bar-bg"><div class="perc-fill" id="lpb4" style="background:var(--primary-cyan)"></div></div></div>
+                </div>
+                <div id="compP" style="visibility: hidden;">
+                    <div class="perc-item"><div class="perc-label" id="cp1"></div><div class="perc-bar-bg"><div class="perc-fill" id="cpb1"></div></div></div>
+                    <div class="perc-item"><div class="perc-label" id="cp2"></div><div class="perc-bar-bg"><div class="perc-fill" id="cpb2"></div></div></div>
+                    <div class="perc-item"><div class="perc-label" id="cp3"></div><div class="perc-bar-bg"><div class="perc-fill" id="cpb3"></div></div></div>
+                    <div class="perc-item"><div class="perc-label" id="cp4"></div><div class="perc-bar-bg"><div class="perc-fill" id="cpb4"></div></div></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const baseData = {
+            mainbrand: { all:[88,78,68,52], india:[92,85,78,65], usa:[85,75,65,40], p_all:[78, 85, 82, 88], p_india:[82, 90, 85, 92], p_usa:[74, 80, 78, 84] },
+            apple: { all:[95,90,75,50], india:[98,92,60,30], usa:[100,98,92,65], p_all:[95, 92, 70, 94], p_india:[97, 95, 65, 90], p_usa:[94, 90, 75, 98], colors: ['#E5E5E5', '#CCCCCC', '#B2B2B2', '#999999'] },
+            samsung: { all:[90,85,82,55], india:[96,92,90,60], usa:[92,88,85,55], p_all:[85, 88, 86, 84], p_india:[88, 90, 89, 87], p_usa:[82, 85, 83, 80], colors: ['#004CFF', '#3370FF', '#6694FF', '#99B8FF'] }
+        };
+
+        const bracketSvg = `<svg width="15" height="40" viewBox="0 0 20 40"><path d="M0,0 C10,0 10,15 20,20 C10,25 10,40 0,40" fill="none" stroke="var(--primary-cyan)" stroke-width="3"/></svg>`;
+
+        function toggleMenu() { document.getElementById("profileDropdown").classList.toggle("show"); }
+
+        window.onclick = function(event) {
+            if (!event.target.matches('.profile-pic')) {
+                const dropdown = document.getElementById("profileDropdown");
+                if (dropdown && dropdown.classList.contains('show')) dropdown.classList.remove('show');
+            }
+        }
+
+        function updateAll() {
+            const country = document.getElementById('regSel').value;
+            const gender = document.getElementById('genSel').value;
+            const age = document.getElementById('ageSel').value;
+            const comp = document.getElementById('compBrand').value;
+            let weight = (gender === 'male' ? 2 : gender === 'female' ? -2 : 0) + (age === '18' ? 5 : age === '55' ? -5 : 0);
+            renderSide('l', 'mainbrand', country, weight);
+            if (comp) {
+                document.getElementById('compM').style.visibility = 'visible';
+                document.getElementById('compP').style.visibility = 'visible';
+                document.getElementById('cT1').innerText = comp.toUpperCase();
+                renderSide('c', comp, country, weight);
+            } else {
+                document.getElementById('compM').style.visibility = 'hidden';
+                document.getElementById('compP').style.visibility = 'hidden';
+            }
+        }
+
+        function renderSide(prefix, brand, country, weight) {
+            const mStats = (baseData[brand][country] || baseData[brand]['all']).map(v => Math.min(100, Math.max(0, v + weight)));
+            const pStats = (baseData[brand]['p_'+country] || baseData[brand]['p_all']).map(v => Math.min(100, Math.max(0, v + weight)));
+            const mNames = ["AWARENESS", "FAMILIARITY", "CONSIDERATION", "PURCHASE"];
+            const pNames = ["Innovation", "Quality", "Value", "Trust"];
+
+            for (let i = 0; i < 4; i++) {
+                let el = document.getElementById(prefix + 'm' + (i+1));
+                if (prefix === 'c') el.style.background = baseData[brand].colors[i];
+                el.innerHTML = `<span>${mNames[i]}</span> <span>&nbsp; ${mStats[i]}%</span>`;
+                if(i < 3) {
+                    let crVal = ((mStats[i+1] / mStats[i]) * 100).toFixed(1);
+                    document.getElementById(prefix + 'cr' + (i+1)).innerHTML = `${bracketSvg} CR ${crVal}%`;
+                }
+            }
+            for (let j = 0; j < 4; j++) {
+                let labelEl = document.getElementById(prefix + 'p' + (j+1));
+                let barEl = document.getElementById(prefix + 'pb' + (j+1));
+                if(barEl && labelEl) {
+                    barEl.style.width = pStats[j] + '%';
+                    if (prefix === 'c') barEl.style.background = baseData[brand].colors[0];
+                    labelEl.innerHTML = `<span>${pNames[j]}</span> <span>${pStats[j]}%</span>`;
+                }
+            }
+        }
+
+        function setLegend(id, items) {
+            document.getElementById(id).innerHTML = items.map(it => `<div class="legend-row"><div class="dot" style="background:${it.c}"></div><span>${it.l}: ${it.v}%</span></div>`).join('');
+        }
+
+        window.onload = function() {
+            document.getElementById('liveDate').innerText = new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' });
+            
+            const cfg = { maintainAspectRatio: false, cutout: '55%', plugins: { legend: { display: false } } };
+
+            // Gender Chart - NOW DOUGHNUT
+            new Chart(document.getElementById('genChart'), {
+                type: 'doughnut', 
+                data: { datasets: [{ data: [56, 44], backgroundColor: ['#4cc9f0', '#f06292'], borderWidth: 0 }] }, 
+                options: cfg
+            });
+            setLegend('genLegend', [{l:'Male', v:56, c:'#4cc9f0'}, {l:'Female', v:44, c:'#f06292'}]);
+
+            // Age Range Chart
+            new Chart(document.getElementById('ageChart'), {
+                type: 'doughnut', 
+                data: { datasets: [{ data: [20, 35, 30, 15], backgroundColor: ['#FFD700', '#00FA9A', '#00BFFF', '#FF69B4'], borderWidth: 0 }] }, 
+                options: cfg
+            });
+            setLegend('ageLegend', [{l:'18-24', v:20, c:'#FFD700'}, {l:'25-40', v:35, c:'#00FA9A'}, {l:'41-55', v:30, c:'#00BFFF'}, {l:'55+', v:15, c:'#FF69B4'}]);
+
+            // Country Chart
+            new Chart(document.getElementById('regChart'), {
+                type: 'doughnut', 
+                data: { datasets: [{ data: [30, 70], backgroundColor: ['#4ade80', '#4cc9f0'], borderWidth: 0 }] }, 
+                options: cfg
+            });
+            setLegend('regLegend', [{l:'India', v:30, c:'#4ade80'}, {l:'USA', v:70, c:'#4cc9f0'}]);
+
+            updateAll();
+        };
+    </script>
+</body>
+</html>

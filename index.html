@@ -1,0 +1,219 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sample Dashboard - C5i Intelligence</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        :root {
+            --bg-dark: #0a192f;
+            --card-bg: #112240;
+            --primary-cyan: #00cecb;
+            --text-white: #e6f1ff;
+            --text-gray: #8892b0;
+            --glow-green: #00ff88;
+            --glow-red: #ff4d4d;
+            --male-blue: #00BFFF;
+            --female-pink: #FF69B4;
+            --cr-yellow: #FFD700;
+        }
+
+        body {
+            font-family: 'Segoe UI', Roboto, sans-serif;
+            background-color: var(--bg-dark); color: var(--text-white);
+            margin: 0; padding: 0; display: flex; flex-direction: column; align-items: center;
+        }
+
+        /* Banner Styles */
+        .banner { 
+            width: 100%; height: 60px; background: #fff; display: flex;
+            justify-content: space-between; align-items: center; 
+            padding: 0 40px; box-sizing: border-box; position: fixed; top: 0; z-index: 1000; 
+        }
+        .banner-center { font-weight: bold; color: #333; font-size: 16px; flex-grow: 1; text-align: center; }
+        .logo-area { width: 150px; }
+        
+        /* Profile & Dropdown Styles */
+        .profile-container { width: 150px; display: flex; justify-content: flex-end; position: relative; cursor: pointer; }
+        .profile-pic { width: 38px; height: 38px; border-radius: 50%; border: 2px solid #ddd; background: #f0f0f0; object-fit: cover; }
+        
+        .dropdown {
+            position: absolute; top: 50px; right: 0; background: white;
+            border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+            display: none; flex-direction: column; width: 120px;
+            overflow: hidden; border: 1px solid #eee; z-index: 2000;
+        }
+        .dropdown a { padding: 10px 15px; text-decoration: none; color: #333; font-size: 14px; border-bottom: 1px solid #f0f0f0; }
+        .dropdown a:last-child { border-bottom: none; }
+        .dropdown a:hover { background: #f5f5f5; }
+        .show { display: flex !important; }
+
+        .dashboard-container {
+            margin-top: 100px; width: 95%; max-width: 1400px;
+            display: grid; grid-template-columns: 280px 1fr 300px; gap: 20px; padding-bottom: 50px;
+        }
+
+        h1.main-title { grid-column: span 3; font-size: 28px; text-align: center; margin: 10px 0; }
+        .card { background: var(--card-bg); border-radius: 12px; padding: 20px; border: 1px solid rgba(255,255,255,0.1); }
+        h2 { font-size: 18px; color: var(--primary-cyan); text-align: center; text-transform: uppercase; margin-top: 0; letter-spacing: 1px; }
+
+        .trend-subtext { font-size: 10px; color: var(--text-gray); text-align: center; margin-bottom: 15px; display: block; }
+        .up-tri { color: var(--glow-green); font-weight: bold; }
+        .down-tri { color: var(--glow-red); font-weight: bold; }
+
+        /* Metrics Funnel & Brackets */
+        .funnel-container {
+            position: relative;
+            width: 100%;
+            max-width: 400px;
+            margin: 0 auto;
+            padding: 20px 0;
+        }
+        .layer { height: 45px; display: flex; align-items: center; justify-content: center; margin-bottom: 12px; font-size: 11px; font-weight: 800; color: #1e293b; width: 100%; position: relative; z-index: 2; }
+        
+        .awareness { clip-path: polygon(0 0, 100% 0, 92% 100%, 8% 100%); background:#b2c28e; }
+        .familiarity { clip-path: polygon(8% 0, 92% 0, 84% 100%, 16% 100%); background:#e8c4a0; }
+        .consideration { clip-path: polygon(16% 0, 84% 0, 76% 100%, 24% 100%); background:#ffffff; }
+        .purchase { clip-path: polygon(24% 0, 76% 0, 70% 100%, 30% 100%); background:#9b8abf; }
+
+        .bracket-label {
+            position: absolute;
+            font-size: 11px;
+            font-weight: bold;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            white-space: nowrap;
+            color: var(--cr-yellow);
+            right: -65px; 
+        }
+
+        .pos-1 { top: 42px; }
+        .pos-2 { top: 99px; }
+        .pos-3 { top: 156px; }
+
+        .cr-legend { font-size: 11px; color: var(--cr-yellow); text-align: center; margin-top: 20px; font-weight: bold; }
+
+        /* Other Visuals */
+        .map-wrapper { position: relative; width: 100%; height: 110px; margin: 15px 0; display: flex; justify-content: center; align-items: center; }
+        .map-placeholder { width: 100%; height: 100%; background: url('https://upload.wikimedia.org/wikipedia/commons/1/1a/Blank_US_Map_%28states_only%29.svg') no-repeat center; background-size: contain; filter: invert(80%) sepia(100%) saturate(500%) hue-rotate(130deg) drop-shadow(0 0 8px var(--primary-cyan)); animation: pulse-glow 3s infinite ease-in-out; }
+        .map-label { position: absolute; font-weight: 900; font-size: 22px; color: var(--text-white); text-shadow: 0 0 10px #000; letter-spacing: 2px; pointer-events: none; }
+        @keyframes pulse-glow { 0%, 100% { filter: invert(80%) sepia(100%) saturate(500%) hue-rotate(130deg) drop-shadow(0 0 5px var(--primary-cyan)); opacity: 0.8; } 50% { filter: invert(80%) sepia(100%) saturate(700%) hue-rotate(130deg) drop-shadow(0 0 15px var(--primary-cyan)); opacity: 1; } }
+        
+        .perc-item { margin-bottom: 20px; }
+        .perc-label { display: flex; justify-content: space-between; align-items: center; font-size: 13px; margin-bottom: 8px; }
+        .perc-bar-bg { background: #233554; height: 12px; border-radius: 6px; overflow: hidden; }
+        .perc-fill { height: 100%; background: var(--primary-cyan); }
+        
+        .tooltip-wrap { position: relative; display: inline-block; }
+        .tooltip-text { visibility: hidden; width: 220px; background-color: #333; color: #fff; text-align: center; border-radius: 6px; padding: 8px; position: absolute; z-index: 10; bottom: 125%; left: 50%; margin-left: -110px; opacity: 0; transition: opacity 0.1s; font-size: 12px; pointer-events: none; border: 1px solid var(--primary-cyan); }
+        .tooltip-wrap:hover .tooltip-text { visibility: visible; opacity: 1; }
+        
+        .comp-btn { background: transparent; border: 2px solid var(--primary-cyan); color: var(--primary-cyan); padding: 12px 25px; font-size: 14px; font-weight: bold; border-radius: 30px; cursor: pointer; text-decoration: none; transition: 0.3s; display: inline-block; }
+        .comp-btn:hover { background: var(--primary-cyan); color: var(--bg-dark); box-shadow: 0 0 15px var(--primary-cyan); }
+    </style>
+</head>
+<body>
+
+    <header class="banner">
+        <div class="logo-area"><img src="https://c5image.s3.amazonaws.com/C5Org_C5Utility/BLRSP/Course5/C5i_Logo_Small.png" alt="C5i Logo" height="30"></div>
+        <div class="banner-center">Sample Dashboard | <span id="liveDate"></span></div>
+        <div class="profile-container" onclick="toggleMenu()">
+            <img src="https://img.icons8.com/color/96/elephant.png" class="profile-pic" alt="User Profile">
+            <div class="dropdown" id="profileDropdown">
+                <a href="#">Help</a>
+                <a href="#">Sign-Off</a>
+            </div>
+        </div>
+    </header>
+
+    <div class="dashboard-container">
+        <h1 class="main-title">Main Brand Dashboard</h1>
+
+        <div class="card">
+            <h2>Demographics</h2>
+            <p style="font-size: 11px; color: var(--text-gray); text-align: center; margin: 0;">Age range</p>
+            <div style="height: 180px;"><canvas id="ageChart"></canvas></div>
+            <p style="font-size: 11px; color: var(--text-gray); text-align: center; margin-top: 10px;">Country</p>
+            <div class="map-wrapper"><div class="map-placeholder"></div><div class="map-label">USA</div></div>
+            <p style="font-size: 11px; color: var(--text-gray); text-align: center; border-top: 1px solid rgba(255,255,255,0.1); padding-top: 10px;">Gender</p>
+            <div style="height: 150px;"><canvas id="genderChart"></canvas></div>
+        </div>
+
+        <div style="display: flex; flex-direction: column; gap: 20px;">
+            <div class="card">
+                <h2>Metrics</h2>
+                <span class="trend-subtext"><span class="up-tri">▲</span> Increase vs. Previous Year (YoY) &nbsp; | &nbsp; <span class="down-tri">▼</span> Decrease vs. Previous Year (YoY)</span>
+                
+                <div class="funnel-container">
+                    <div class="bracket-label pos-1">
+                        <svg width="20" height="57" viewBox="0 0 20 40"><path d="M0,0 C10,0 10,15 20,20 C10,25 10,40 0,40" fill="none" stroke="var(--primary-cyan)" stroke-width="2.5"/></svg>
+                        CR <span>88.24%</span>
+                    </div>
+                    <div class="layer awareness">AWARENESS &nbsp; 85% <span class="up-tri" style="margin-left:5px">▲</span></div>
+                    
+                    <div class="bracket-label pos-2">
+                        <svg width="20" height="57" viewBox="0 0 20 40"><path d="M0,0 C10,0 10,15 20,20 C10,25 10,40 0,40" fill="none" stroke="var(--primary-cyan)" stroke-width="2.5"/></svg>
+                        CR <span>86.67%</span>
+                    </div>
+                    <div class="layer familiarity">FAMILIARITY &nbsp; 75% <span class="down-tri" style="margin-left:5px">▼</span></div>
+
+                    <div class="bracket-label pos-3">
+                        <svg width="20" height="57" viewBox="0 0 20 40"><path d="M0,0 C10,0 10,15 20,20 C10,25 10,40 0,40" fill="none" stroke="var(--primary-cyan)" stroke-width="2.5"/></svg>
+                        CR <span>61.54%</span>
+                    </div>
+                    <div class="layer consideration">CONSIDERATION &nbsp; 65% <span class="down-tri" style="margin-left:5px">▼</span></div>
+                    <div class="layer purchase">PURCHASE &nbsp; 40% <span class="down-tri" style="margin-left:5px">▼</span></div>
+
+                    <div class="cr-legend">CR = Conversion Ratio</div>
+                </div>
+            </div>
+
+            <div class="card">
+                <h2>Perception</h2>
+                <span class="trend-subtext"><span class="up-tri">▲</span> Increase vs. Previous Year (YoY) &nbsp; | &nbsp; <span class="down-tri">▼</span> Decrease vs. Previous Year (YoY)</span>
+                <div style="padding: 10px 15px;">
+                    <div class="perc-item"><div class="perc-label"><span>Innovation</span><span>74% <span class="down-tri">▼</span></span></div><div class="perc-bar-bg"><div class="perc-fill" style="width: 74%"></div></div></div>
+                    <div class="perc-item"><div class="perc-label"><span>Quality</span><span>80% <span class="down-tri">▼</span></span></div><div class="perc-bar-bg"><div class="perc-fill" style="width: 80%"></div></div></div>
+                    <div class="perc-item"><div class="perc-label"><span>Value</span><span>78% <span class="up-tri">▲</span></span></div><div class="perc-bar-bg"><div class="perc-fill" style="width: 78%"></div></div></div>
+                    <div class="perc-item"><div class="perc-label"><span>Trust</span><span>84% <span class="up-tri">▲</span></span></div><div class="perc-bar-bg"><div class="perc-fill" style="width: 84%"></div></div></div>
+                </div>
+            </div>
+        </div>
+
+        <div class="card" style="text-align: center;">
+            <p style="font-size: 14px; color: var(--text-gray); margin-bottom: 20px;">For detailed competitor analysis, press below button</p>
+            <div class="tooltip-wrap">
+                <a href="comparsion.html" class="comp-btn" target="_blank">Comparison</a>
+                <span class="tooltip-text">Click here to compare with the Competitor brand</span>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Dropdown toggle function
+        function toggleMenu() {
+            document.getElementById("profileDropdown").classList.toggle("show");
+        }
+
+        // Close dropdown if clicked outside
+        window.onclick = function(event) {
+            if (!event.target.matches('.profile-pic')) {
+                const dropdown = document.getElementById("profileDropdown");
+                if (dropdown && dropdown.classList.contains('show')) {
+                    dropdown.classList.remove('show');
+                }
+            }
+        }
+
+        const coloredTextPlugin = { id: 'coloredText', afterDraw(chart) { const { ctx, chartArea: { top, width, height } } = chart; ctx.save(); ctx.font = 'bold 12px Segoe UI'; ctx.textAlign = 'center'; if(chart.canvas.id === 'ageChart') { const labels = ["18-24: 20%", "25-40: 35%", "41-55: 30%", "55+: 15%"]; const colors = ['#FFD700', '#00FA9A', '#00BFFF', '#FF69B4']; labels.forEach((line, i) => { ctx.fillStyle = colors[i]; ctx.fillText(line, width / 2, (height / 2) + top - 25 + (i * 18)); }); } else if(chart.canvas.id === 'genderChart') { const labels = ["Male: 48%", "Female: 52%"]; const colors = ['#00BFFF', '#FF69B4']; labels.forEach((line, i) => { ctx.fillStyle = colors[i]; ctx.fillText(line, width / 2, (height / 2) + top - 10 + (i * 20)); }); } ctx.restore(); } };
+        
+        window.onload = function() {
+            document.getElementById('liveDate').innerText = new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' });
+            new Chart(document.getElementById('ageChart'), { type: 'doughnut', data: { labels: ['18-24', '25-40', '41-55', '55+'], datasets: [{ data: [20, 35, 30, 15], backgroundColor: ['#FFD700', '#00FA9A', '#00BFFF', '#FF69B4'], borderWidth: 0 }] }, options: { maintainAspectRatio: false, plugins: { legend: { display: false } }, cutout: '75%' }, plugins: [coloredTextPlugin] });
+            new Chart(document.getElementById('genderChart'), { type: 'doughnut', data: { labels: ['Male', 'Female'], datasets: [{ data: [48, 52], backgroundColor: ['#00BFFF', '#FF69B4'], borderWidth: 0 }] }, options: { maintainAspectRatio: false, plugins: { legend: { display: true, position: 'bottom', labels: { color: '#fff', boxWidth: 10, font: { size: 10 } } } }, cutout: '70%' }, plugins: [coloredTextPlugin] });
+        };
+    </script>
+</body>
+</html>
